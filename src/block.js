@@ -36,23 +36,20 @@ class Block {
      *  Note: to access the class values inside a Promise code you need to create an auxiliary value `let self = this;`
      */
     validate() {
+        // Save in auxiliary variable the current block hash
         let self = this;
-        return new Promise(async (resolve, reject) => {
-            // Save in auxiliary variable the current block hash
-            let self = this;
 
-            return new Promise(function(resolve,reject) {
-                // Recalculate the hash of the Block
-                var newhash = await SHA256(JSON.stringify(self)).toString();
-                // Comparing if the hashes changed
-                if(newhash === self.hash) {
-                    // Returning the Block is valid
-                    resolve(true);
-                } else {
-                    // Returning the Block is not valid
-                    resolve(false);
-                }
-            });
+        return new Promise(async function(resolve,reject) {
+            // Recalculate the hash of the Block
+            var newhash = await SHA256(JSON.stringify(self)).toString();
+            // Comparing if the hashes changed
+            if(newhash === self.hash) {
+                // Returning the Block is valid
+                resolve(true);
+            } else {
+                // Returning the Block is not valid
+                resolve(false);
+            }
         });
     }
 
@@ -66,11 +63,26 @@ class Block {
      *     or Reject with an error.
      */
     getBData() {
-        // Getting the encoded data saved in the Block
-        // Decoding the data to retrieve the JSON representation of the object
-        // Parse the data to an object to be retrieve.
+        let self = this;
+        return new Promise((resolve, reject) => {
+            // Getting the encoded data saved in the Block
+            var encodedStringHex = self.body;
+            // Decoding the data to retrieve the JSON representation of the object
+            var decodedJsonObj = hex2ascii(encodedStringHex);
+            // Parse the data to an object to be retrieve.
+            var parsedJsonObj = JSON.parse(decodedJsonObj);
+            // Resolve with the data if the object isn't the Genesis block
+            if (self.height != 0) {
+                resolve(parsedJsonObj);
+            } else {
+                reject(new Error('Block is a Genesis block'));
+            }
+        });
+        
+        
+        
 
-        // Resolve with the data if the object isn't the Genesis block
+        
 
     }
 
