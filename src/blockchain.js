@@ -11,6 +11,7 @@
 const SHA256 = require('crypto-js/sha256');
 const BlockClass = require('./block.js');
 const bitcoinMessage = require('bitcoinjs-message');
+const hex2ascii = require('hex2ascii');
 
 class Blockchain {
 
@@ -64,7 +65,28 @@ class Blockchain {
     _addBlock(block) {
         let self = this;
         return new Promise(async (resolve, reject) => {
-           
+            let height = self.chain.length;
+            if(height === 0) {
+                block.previousBlockHash = null;
+            } else {
+                block.previousBlockHash = self.chain[height - 1].hash;
+            }
+            block.height = height;
+            block.time = new Date().getTime().toString().slice(0,-3);
+            block.hash = await SHA256(JSON.stringify(block)).toString();
+            if(block.hash !== null) {
+                resolve(block);
+            } else {
+                reject(new Error("Could not add Block"));
+            }
+        })
+        .then(block => {
+            self.chain.push(block);
+            self.height = self.chain.length - 1;
+            return block;
+        })
+        .catch(err => {
+            console.log(err)
         });
     }
 
@@ -78,7 +100,7 @@ class Blockchain {
      */
     requestMessageOwnershipVerification(address) {
         return new Promise((resolve) => {
-            
+            resolve(`${address}:${new Date().getTime().toString().slice(0,-3)}:starRegistry`);
         });
     }
 
@@ -102,7 +124,17 @@ class Blockchain {
     submitStar(address, message, signature, star) {
         let self = this;
         return new Promise(async (resolve, reject) => {
-            
+            let senttime = parseInt(message.split(':')[1]);
+            let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
+            const elapsedTime = currentTime - senttime;
+
+            if(elapsedTime < (5*60) && bitcoinMessage.verify(message, address, signature)) {
+                let newBlock = new BlockClass.Block(star);
+                newBlock.owner = address;
+                resolve(await this._addBlock(newBlock));
+            } else {
+                reject(new Error('Invalid message.'));
+            }
         });
     }
 
@@ -115,7 +147,8 @@ class Blockchain {
     getBlockByHash(hash) {
         let self = this;
         return new Promise((resolve, reject) => {
-           
+           var block  = self.chain.filter(block => block.hash === hash)[0];
+           resolve(block);
         });
     }
 
@@ -146,7 +179,20 @@ class Blockchain {
         let self = this;
         let stars = [];
         return new Promise((resolve, reject) => {
-            
+            let ownedBlocks = self.chain.filter(block => block.owner === address);
+            if (ownedBlocks == null || ownedBlocks.length === 0) {
+                reject(new Error(`No blocks with address ${address} were found.`));
+            }
+
+            for(var i = 0; i < ownedBlocks.length; i++) {
+                stars.push(JSON.parse(hex2ascii(ownedBlocks[i].body)));
+            }
+
+            if(stars) {
+                resolve(stars);
+            } else {
+                reject(new Error('Stars could not be resolved'));
+            }
         });
     }
 
@@ -160,7 +206,24 @@ class Blockchain {
         let self = this;
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
-            
+            for(var block of self.chain) {
+                if(await block.validate()) {
+                    if(block.height != 0) {
+                        var prevBlockHash = block.previousBlockHash;
+                        var previousBlock = self.chain[block.height - 2];
+                        if(prevBlockHash !== previousBlock.hash) {
+                            errorLog.push(new Error(`Invalid block in chain at block height ${block.height}`));
+                        }
+                    }
+                } else {
+                    errorLog.push(new Error(`Invalid block in chain at block height ${block.height}`));
+                }
+            }
+            if (errorLog.length > 0) {
+                resolve(errorLog);
+            } else {
+                resolve(true);
+            }
         });
     }
 

@@ -78,12 +78,6 @@ class Block {
                 reject(new Error('Block is a Genesis block'));
             }
         });
-        
-        
-        
-
-        
-
     }
 
 }
