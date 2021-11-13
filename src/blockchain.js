@@ -64,7 +64,9 @@ class Blockchain {
      */
     _addBlock(block) {
         let self = this;
+        var isValidChain = null;;
         return new Promise(async (resolve, reject) => {
+            isValidChain = await this.validateChain();
             let height = self.chain.length;
             if(height === 0) {
                 block.previousBlockHash = null;
@@ -81,9 +83,14 @@ class Blockchain {
             }
         })
         .then(block => {
-            self.chain.push(block);
-            self.height = self.chain.length - 1;
-            return block;
+            
+            if(isValidChain === true) {
+                self.chain.push(block);
+                self.height = self.chain.length - 1;
+                return block;
+            } else {
+                throw new Error(isValidChain);
+            }
         })
         .catch(err => {
             console.log(err)
@@ -147,7 +154,7 @@ class Blockchain {
     getBlockByHash(hash) {
         let self = this;
         return new Promise((resolve, reject) => {
-           var block  = self.chain.filter(block => block.hash === hash)[0];
+           var block  = self.chain.find(block => block.hash === hash);
            resolve(block);
         });
     }
@@ -210,7 +217,7 @@ class Blockchain {
                 if(await block.validate()) {
                     if(block.height != 0) {
                         var prevBlockHash = block.previousBlockHash;
-                        var previousBlock = self.chain[block.height - 2];
+                        var previousBlock = self.chain[block.height - 1];
                         if(prevBlockHash !== previousBlock.hash) {
                             errorLog.push(new Error(`Invalid block in chain at block height ${block.height}`));
                         }
